@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Duo — private messenger</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#fff; --panel-2:#eef1f5; --ink:#12151a; --ink-2:#5b6472;
+    --line:#e2e6ec; --accent:#2f6df6; --mine:#d9e7ff; --theirs:#fff;
+    --ok:#14915a; --danger:#d93b3b; --radius:14px; --shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06);
+  }
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+    --bg:#0f1115; --panel:#161a21; --panel-2:#1d222b; --ink:#e9edf3; --ink-2:#98a2b3;
+    --line:#262c36; --accent:#4c86ff; --mine:#20406e; --theirs:#1d222b;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);}}
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+       -webkit-font-smoothing:antialiased;overscroll-behavior-y:none}
+  button,input,textarea{font:inherit;color:inherit} button{cursor:pointer;border:0;background:none}
+  .app{height:100dvh;display:flex;flex-direction:column;max-width:860px;margin:0 auto;background:var(--panel);box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .screen{display:none;flex:1;min-height:0;flex-direction:column}.screen.on{display:flex}
+  .pad{padding:22px;max-width:520px;margin:0 auto;width:100%}
+  .center{flex:1;display:flex;flex-direction:column;justify-content:center;overflow:auto}
+  h1{font-size:22px;margin:0 0 6px;letter-spacing:-.01em}
+  h2{font-size:13px;margin:22px 0 8px;color:var(--ink-2);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+  p.sub{margin:0 0 18px;color:var(--ink-2)}
+  .field{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);outline:none}
+  .field:focus{border-color:var(--accent)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;border-radius:12px;background:var(--accent);color:#fff;font-weight:600;width:100%}
+  .btn.ghost{background:var(--panel-2);color:var(--ink);border:1px solid var(--line)} .btn.ok{background:var(--ok)} .btn.danger{background:var(--danger)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .row{display:flex;gap:10px}.row>*{flex:1}.mt{margin-top:12px}
+  .card{border:1px solid var(--line);background:var(--panel-2);border-radius:var(--radius);padding:14px;margin-top:12px}
+  .mono{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;word-break:break-all;color:var(--ink-2)}
+  .muted{color:var(--ink-2);font-size:13px}
+  .top{display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .avatar{width:38px;height:38px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700;flex:none}
+  .who{min-width:0;flex:1}.who .n{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .who .s{font-size:12px;color:var(--ink-2);display:flex;align-items:center;gap:6px}
+  .dot{width:8px;height:8px;border-radius:50%;background:#98a2b3;flex:none}.dot.on{background:var(--ok)}
+  .iconbtn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;flex:none}
+  .iconbtn:hover{background:var(--panel-2)}
+  .iconbtn svg{width:21px;height:21px;stroke:var(--ink);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .msgs{flex:1;min-height:0;overflow-y:auto;padding:14px 12px 6px;display:flex;flex-direction:column;gap:3px;
+        background-image:radial-gradient(circle at 1px 1px,var(--line) 1px,transparent 0);background-size:22px 22px}
+  .day{align-self:center;margin:10px 0;font-size:12px;color:var(--ink-2);background:var(--panel);border:1px solid var(--line);padding:3px 10px;border-radius:999px}
+  .b{max-width:78%;padding:8px 11px 6px;border-radius:14px;background:var(--theirs);border:1px solid var(--line);align-self:flex-start;
+     box-shadow:0 1px 1px rgba(0,0,0,.04);overflow-wrap:anywhere}
+  .b.me{align-self:flex-end;background:var(--mine);border-color:transparent}.b.run{margin-top:-1px}
+  .b .txt{white-space:pre-wrap}.b.big .txt{font-size:34px;line-height:1.2}
+  .b .meta{display:flex;align-items:center;gap:4px;justify-content:flex-end;font-size:11px;color:var(--ink-2);margin-top:2px}
+  .tick{font-size:11px;letter-spacing:-2px}.tick.read{color:var(--accent);font-weight:700}
+  .att{display:block;max-width:230px;border-radius:10px;margin-bottom:4px;background:var(--panel-2)}
+  .filerow{display:flex;align-items:center;gap:10px;padding:6px 4px;min-width:200px}
+  .fileicon{width:38px;height:38px;border-radius:9px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700;flex:none}
+  .filename{font-weight:600;font-size:13.5px;word-break:break-all}
+  .typing{align-self:flex-start;margin:4px 2px 8px;font-size:12.5px;color:var(--ink-2)}
+  .typing b{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--ink-2);margin-left:2px;animation:bl 1.2s infinite}
+  .typing b:nth-child(2){animation-delay:.2s}.typing b:nth-child(3){animation-delay:.4s}
+  @keyframes bl{0%,60%,100%{opacity:.25}30%{opacity:1}}
+  .composer{border-top:1px solid var(--line);padding:8px;display:flex;align-items:flex-end;gap:6px;background:var(--panel);padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+  .composer textarea{flex:1;resize:none;max-height:120px;padding:10px 12px;border-radius:18px;border:1px solid var(--line);background:var(--panel-2);outline:none}
+  .composer textarea:focus{border-color:var(--accent)}
+  .send{width:42px;height:42px;border-radius:50%;background:var(--accent);display:grid;place-items:center;flex:none}.send svg{stroke:#fff}
+  .emojis{display:none;grid-template-columns:repeat(8,1fr);gap:2px;padding:8px;border-top:1px solid var(--line);background:var(--panel);max-height:190px;overflow:auto}
+  .emojis.on{display:grid}.emojis button{font-size:22px;padding:5px;border-radius:8px}.emojis button:hover{background:var(--panel-2)}
+  .up{padding:6px 12px;font-size:12.5px;color:var(--ink-2);border-top:1px solid var(--line);display:none}.up.on{display:block}
+  .call{position:absolute;inset:0;background:#0b0d11;color:#fff;display:none;flex-direction:column;z-index:40}.call.on{display:flex}
+  .stage{flex:1;position:relative;overflow:hidden}
+  #remoteV{width:100%;height:100%;object-fit:cover;background:#0b0d11}
+  #localV{position:absolute;right:12px;bottom:12px;width:104px;height:150px;object-fit:cover;border-radius:12px;border:2px solid rgba(255,255,255,.25);background:#000;z-index:2}
+  .callinfo{position:absolute;top:0;left:0;right:0;padding:22px 16px;text-align:center;background:linear-gradient(rgba(0,0,0,.55),transparent);z-index:3}
+  .callinfo .nm{font-size:20px;font-weight:650}.callinfo .st{font-size:13px;opacity:.75;margin-top:3px}
+  .bigavatar{position:absolute;inset:0;display:grid;place-items:center}
+  .bigavatar div{width:110px;height:110px;border-radius:50%;background:#2f6df6;display:grid;place-items:center;font-size:42px;font-weight:700}
+  .ctrls{display:flex;justify-content:center;gap:14px;padding:18px 12px calc(26px + env(safe-area-inset-bottom));background:#0b0d11}
+  .cbtn{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.14);display:grid;place-items:center}
+  .cbtn.off{background:#fff}.cbtn.off svg{stroke:#0b0d11}.cbtn.hang{background:var(--danger)}.cbtn.acc{background:var(--ok)}
+  .cbtn svg{width:24px;height:24px;stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  .toast{position:absolute;left:50%;transform:translateX(-50%);bottom:86px;background:rgba(0,0,0,.82);color:#fff;padding:9px 14px;border-radius:999px;
+         font-size:13px;z-index:60;opacity:0;transition:.2s;pointer-events:none;max-width:88%;text-align:center}.toast.on{opacity:1}
+  .hide{display:none!important}
+  .spin{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite;display:inline-block;vertical-align:-3px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .banner{background:#8a5a00;color:#fff;font-size:12.5px;padding:6px 12px;text-align:center;display:none}.banner.on{display:block}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="banner" id="netBanner">Reconnecting…</div>
+
+  <section class="screen on" id="scBoot"><div class="center"><div class="pad">
+    <h1>Duo</h1><p class="sub" id="bootMsg"><span class="spin"></span> Starting…</p>
+  </div></div></section>
+
+  <section class="screen" id="scLogin"><div class="center"><div class="pad">
+    <h1>Duo</h1>
+    <p class="sub">A private one-to-one messenger. Pick a username — no phone number, no email.</p>
+    <div id="inviteNote" class="card hide"></div>
+    <input class="field mt" id="username" maxlength="24" placeholder="Username" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button class="btn mt" id="loginBtn">Continue</button>
+    <p class="muted mt">Your device creates an encryption key that never leaves it. Messages and files are end-to-end encrypted — the server only ever stores ciphertext.</p>
+    <p class="muted mt" id="installHint"></p>
+  </div></div></section>
+
+  <section class="screen" id="scLobby"><div class="center"><div class="pad">
+    <h1>Hi, <span id="meName"></span></h1>
+    <p class="sub">Duo pairs you with exactly one person.</p>
+    <div id="visitorBox" class="hide">
+      <div class="card"><b id="hostName"></b> invited you to connect privately.
+        <div class="muted mt" id="reqState">Send a request and wait for them to accept.</div></div>
+      <button class="btn mt" id="sendReqBtn">Send connection request</button>
+    </div>
+    <div id="hostBox">
+      <h2>Your invitation link</h2>
+      <div class="card"><div class="mono" id="inviteUrl"></div></div>
+      <div class="row mt"><button class="btn" id="copyBtn">Copy link</button><button class="btn ghost" id="shareBtn">Share</button></div>
+      <h2>Requests</h2><div id="reqList"><p class="muted">No pending requests yet.</p></div>
+    </div>
+    <button class="btn ghost" id="logoutBtn" style="margin-top:28px">Sign out of this device</button>
+  </div></div></section>
+
+  <section class="screen" id="scChat">
+    <header class="top">
+      <div class="avatar" id="peerAv">?</div>
+      <div class="who"><div class="n" id="peerName">…</div>
+        <div class="s"><span class="dot" id="peerDot"></span><span id="peerStatus">offline</span></div></div>
+      <button class="iconbtn" id="voiceBtn" aria-label="Voice call"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg></button>
+      <button class="iconbtn" id="videoBtn" aria-label="Video call"><svg viewBox="0 0 24 24"><path d="m23 7-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></button>
+      <button class="iconbtn" id="menuBtn" aria-label="Menu"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
+    </header>
+    <div class="msgs" id="msgs"></div>
+    <div class="typing hide" id="typingRow"><span id="typingName"></span> is typing<b></b><b></b><b></b></div>
+    <div class="up" id="upRow"></div>
+    <div class="emojis" id="emojiPane"></div>
+    <div class="composer">
+      <button class="iconbtn" id="emojiBtn" aria-label="Emoji"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg></button>
+      <button class="iconbtn" id="attachBtn" aria-label="Attach"><svg viewBox="0 0 24 24"><path d="M21.4 11.1 12.3 20a5.5 5.5 0 0 1-7.8-7.8l9.2-9.1a3.7 3.7 0 0 1 5.2 5.2l-9.2 9.1a1.8 1.8 0 0 1-2.6-2.6l8.5-8.4"/></svg></button>
+      <textarea id="input" rows="1" placeholder="Message" enterkeyhint="send"></textarea>
+      <button class="send" id="sendBtn" aria-label="Send"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg></button>
+    </div>
+    <input type="file" id="fileIn" multiple class="hide">
+  </section>
+
+  <section class="call" id="scCall">
+    <div class="stage">
+      <video id="remoteV" playsinline autoplay></video>
+      <div class="bigavatar" id="callAvatar"><div id="callInitial">?</div></div>
+      <video id="localV" playsinline autoplay muted></video>
+      <div class="callinfo"><div class="nm" id="callName">…</div><div class="st" id="callState">Calling…</div></div>
+    </div>
+    <div class="ctrls" id="callCtrls"></div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const S = { token:null, me:null, peer:null, pair:null, priv:null, pubJwk:null, key:null,
+            msgs:new Map(), order:[], peerReceipt:{deliveredTs:0,readTs:0}, myReceipt:{deliveredTs:0,readTs:0},
+            peerOnline:false, lastSeen:0, ws:null, notifOK:false, invite:null };
+
+/* ------------------------------ helpers ------------------------------ */
+function screenTo(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on', s.id===id)); }
+let tT; function toast(m, ms=2600){ const t=$('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove('on'), ms); }
+const initial = n => (n||'?').trim().charAt(0).toUpperCase();
+const fmtTime = ts => new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+function fmtDay(ts){ const d=new Date(ts), n=new Date(), y=new Date(Date.now()-864e5);
+  if(d.toDateString()===n.toDateString()) return 'Today';
+  if(d.toDateString()===y.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString([], {day:'numeric', month:'short', year:d.getFullYear()===n.getFullYear()?undefined:'numeric'}); }
+const fmtSize = b => b<1024 ? b+' B' : b<1048576 ? (b/1024).toFixed(0)+' KB' : (b/1048576).toFixed(1)+' MB';
+const rid = (n=14)=>{ const a='abcdefghijkmnopqrstuvwxyz23456789'; let s=''; const r=crypto.getRandomValues(new Uint8Array(n));
+  for(let i=0;i<n;i++) s+=a[r[i]%a.length]; return s; };
+
+async function api(path, opts={}){
+  const h = Object.assign({}, opts.headers||{});
+  if(S.token) h.Authorization = 'Bearer '+S.token;
+  if(opts.json){ h['Content-Type']='application/json'; opts.body = JSON.stringify(opts.json); }
+  const r = await fetch(path, Object.assign({}, opts, {headers:h}));
+  if(r.status === 401){ localStorage.removeItem('duo.token'); location.reload(); throw new Error('unauthorized'); }
+  const ct = r.headers.get('content-type')||'';
+  const body = ct.includes('json') ? await r.json() : r;
+  if(!r.ok) throw new Error((body && body.error) || ('HTTP '+r.status));
+  return body;
+}
+
+/* ------------------------------- crypto ------------------------------ */
+const b64 = { enc(buf){ const u=new Uint8Array(buf); let s=''; for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); return btoa(s); },
+              dec(str){ const s=atob(str); const u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return u; } };
+async function myKeypair(){
+  const k='duo.key';
+  const saved = localStorage.getItem(k);
+  if(saved){ try{ const {priv,pub}=JSON.parse(saved);
+    return {priv: await crypto.subtle.importKey('jwk', priv, {name:'ECDH',namedCurve:'P-256'}, true, ['deriveBits']), pubJwk: pub}; }catch(e){} }
+  const pair = await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'}, true, ['deriveBits']);
+  const priv = await crypto.subtle.exportKey('jwk', pair.privateKey), pub = await crypto.subtle.exportKey('jwk', pair.publicKey);
+  localStorage.setItem(k, JSON.stringify({priv, pub}));
+  return {priv: pair.privateKey, pubJwk: pub};
+}
+async function deriveShared(peerPubJwk, pairId){
+  const peerPub = await crypto.subtle.importKey('jwk', peerPubJwk, {name:'ECDH',namedCurve:'P-256'}, false, []);
+  const bits = await crypto.subtle.deriveBits({name:'ECDH', public:peerPub}, S.priv, 256);
+  const base = await crypto.subtle.importKey('raw', bits, 'HKDF', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'HKDF', hash:'SHA-256', salt:new TextEncoder().encode('duo:'+pairId), info:new TextEncoder().encode('duo-msg-v1')},
+    base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+async function encJSON(o){ const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv}, S.key, new TextEncoder().encode(JSON.stringify(o)));
+  return {iv:b64.enc(iv), ct:b64.enc(ct)}; }
+async function decJSON(e){ const pt=await crypto.subtle.decrypt({name:'AES-GCM', iv:b64.dec(e.iv)}, S.key, b64.dec(e.ct));
+  return JSON.parse(new TextDecoder().decode(pt)); }
+
+/* -------------------------------- boot ------------------------------- */
+async function boot(){
+  if(!window.isSecureContext) $('bootMsg').textContent = 'This page must be served over HTTPS for encryption and calls to work.';
+  const kp = await myKeypair(); S.priv=kp.priv; S.pubJwk=kp.pubJwk;
+  S.invite = (location.hash.match(/i=([a-z0-9]+)/i)||[])[1] || null;
+  S.token = localStorage.getItem('duo.token');
+
+  if(!S.token){
+    if(S.invite) showInviteNote();
+    if(!window.matchMedia('(display-mode: standalone)').matches)
+      $('installHint').textContent = 'Tip: use your browser menu → "Add to Home Screen" to install Duo as an app.';
+    screenTo('scLogin'); $('username').focus();
+    $('loginBtn').onclick = doLogin;
+    $('username').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+    return;
+  }
+  await refresh();
+}
+
+async function showInviteNote(){
+  try{ const inv = await api('/api/invite/'+S.invite);
+    const box=$('inviteNote'); box.classList.remove('hide'); box.textContent='';
+    const b=document.createElement('b'); b.textContent=inv.ownerUsername; box.appendChild(b);
+    box.appendChild(document.createTextNode(inv.taken ? ' is already connected to someone else.' : ' invited you to connect. Pick a username to continue.'));
+  }catch(e){}
+}
+
+async function doLogin(){
+  const username = $('username').value.trim();
+  if(username.length < 2){ toast('Pick a username with at least 2 characters'); return; }
+  $('loginBtn').disabled = true;
+  try{
+    const r = await api('/api/signup', {json:{username, pubJwk:S.pubJwk}});
+    S.token = r.token; localStorage.setItem('duo.token', r.token);
+    askNotify();
+    await refresh();
+  }catch(e){ $('loginBtn').disabled=false; toast('Sign in failed: '+e.message); }
+}
+
+function askNotify(){
+  if(!('Notification' in window)) return;
+  if(Notification.permission === 'granted'){ S.notifOK=true; return; }
+  if(Notification.permission === 'denied') return;
+  Notification.requestPermission().then(p => S.notifOK = p==='granted').catch(()=>{});
+}
+
+async function refresh(){
+  const st = await api('/api/me');
+  S.me = st.me;
+  if(JSON.stringify(S.me.pubJwk) !== JSON.stringify(S.pubJwk)){
+    await api('/api/key', {json:{pubJwk:S.pubJwk}}); S.me.pubJwk = S.pubJwk;
+  }
+  connectWS();
+  if(st.pair && st.peer) return openChat(st.pair, st.peer);
+  renderLobby(st);
+}
+
+/* -------------------------------- lobby ------------------------------ */
+function renderLobby(st){
+  screenTo('scLobby');
+  $('meName').textContent = S.me.username;
+  const link = location.origin + '/#i=' + S.me.code;
+  $('inviteUrl').textContent = link;
+  $('copyBtn').onclick = async () => { try{ await navigator.clipboard.writeText(link); toast('Invitation link copied'); }catch(e){ toast('Copy it manually'); } };
+  $('shareBtn').onclick = async () => { if(navigator.share){ try{ await navigator.share({title:'Duo', text:'Chat with me privately on Duo', url:link}); }catch(e){} } else $('copyBtn').click(); };
+  $('logoutBtn').onclick = () => {
+    if(!confirm('Sign out here? Your encryption key is erased on this device, so past messages will no longer be readable here.')) return;
+    localStorage.clear(); location.hash=''; location.reload();
+  };
+  if(S.invite && S.invite !== S.me.code){
+    $('visitorBox').classList.remove('hide'); $('hostBox').classList.add('hide');
+    api('/api/invite/'+S.invite).then(inv => { $('hostName').textContent = inv.ownerUsername; }).catch(()=>{});
+    if(st.myRequest && st.myRequest.status === 'pending') markSent();
+    $('sendReqBtn').onclick = async () => {
+      $('sendReqBtn').disabled = true;
+      try{ await api('/api/request', {json:{code:S.invite}}); markSent(); }
+      catch(e){ $('sendReqBtn').disabled=false; toast(e.message); }
+    };
+  }
+  renderRequests(st.requests || []);
+}
+function markSent(){ $('sendReqBtn').disabled=true; $('sendReqBtn').textContent='Request sent';
+  $('reqState').innerHTML='<span class="spin"></span> Waiting for them to accept…'; }
+
+function renderRequests(list){
+  const box=$('reqList'); box.textContent='';
+  if(!list.length){ const p=document.createElement('p'); p.className='muted'; p.textContent='No pending requests yet.'; box.appendChild(p); return; }
+  list.forEach(r => {
+    const c=document.createElement('div'); c.className='card';
+    const t=document.createElement('div'); const b=document.createElement('b'); b.textContent=r.fromUsername;
+    t.appendChild(b); t.appendChild(document.createTextNode(' wants to connect with you.'));
+    const row=document.createElement('div'); row.className='row mt';
+    const acc=document.createElement('button'); acc.className='btn ok'; acc.textContent='Accept';
+    const rej=document.createElement('button'); rej.className='btn ghost'; rej.textContent='Decline';
+    acc.onclick = async () => { acc.disabled=rej.disabled=true; try{ await api('/api/request/'+r.fromUid+'/accept',{method:'POST'}); }catch(e){ toast(e.message); acc.disabled=rej.disabled=false; } };
+    rej.onclick = async () => { rej.disabled=true; try{ await api('/api/request/'+r.fromUid+'/reject',{method:'POST'}); renderRequests(list.filter(x=>x!==r)); }catch(e){} };
+    row.appendChild(acc); row.appendChild(rej); c.appendChild(t); c.appendChild(row); box.appendChild(c);
+  });
+}
+
+/* ------------------------------ websocket ---------------------------- */
+let wsRetry = 0;
+function connectWS(){
+  if(S.ws && S.ws.readyState <= 1) return;
+  const url = (location.protocol==='https:'?'wss://':'ws://') + location.host + '/ws?token=' + encodeURIComponent(S.token);
+  const ws = new WebSocket(url); S.ws = ws;
+  ws.onopen = () => { wsRetry=0; $('netBanner').classList.remove('on'); };
+  ws.onclose = () => { $('netBanner').classList.add('on'); setTimeout(connectWS, Math.min(1000*Math.pow(1.6, wsRetry++), 15000)); };
+  ws.onmessage = ev => { let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } onWS(m); };
+}
+function wsSend(o){ if(S.ws && S.ws.readyState === 1) S.ws.send(JSON.stringify(o)); }
+
+async function onWS(m){
+  switch(m.t){
+    case 'hello': setOnline(m.peerOnline); break;
+    case 'request': if(!S.pair) refresh(); break;
+    case 'rejected': $('reqState') && ($('reqState').textContent='Your request was declined.');
+                     $('sendReqBtn').disabled=false; $('sendReqBtn').textContent='Send again'; break;
+    case 'paired': openChat(m.pair, m.peer); break;
+    case 'unpaired': toast('You were disconnected'); localStorage.removeItem('duo.token'); setTimeout(()=>location.reload(), 1500); break;
+    case 'key': if(S.peer && m.uid===S.peer.uid){ S.peer.pubJwk=m.pubJwk; S.key = await deriveShared(m.pubJwk, S.pair.pairId); } break;
+    case 'msg': await ingest([m.msg], true); break;
+    case 'receipt': if(S.peer && m.by===S.peer.uid){ S.peerReceipt=m.receipt; renderAll(); } break;
+    case 'typing': if(S.peer && m.uid===S.peer.uid) showTyping(m.on); break;
+    case 'presence': if(S.peer && m.uid===S.peer.uid){ S.lastSeen=m.lastSeen||S.lastSeen; setOnline(m.online); } break;
+    case 'signal': onSignal(m.d); break;
+  }
+}
+function setOnline(on){ S.peerOnline=!!on; $('peerDot').classList.toggle('on', S.peerOnline);
+  $('peerStatus').textContent = S.peerOnline ? 'online' : (S.lastSeen ? 'last seen '+fmtTime(S.lastSeen) : 'offline'); }
+let typT; function showTyping(on){ $('typingRow').classList.toggle('hide', !on); clearTimeout(typT); if(on) typT=setTimeout(()=>$('typingRow').classList.add('hide'), 5000); }
+
+/* -------------------------------- chat ------------------------------- */
+async function openChat(pair, peer){
+  S.pair = pair; S.peer = peer; S.lastSeen = peer.lastSeen || 0;
+  screenTo('scChat');
+  $('peerName').textContent = peer.username; $('peerAv').textContent = initial(peer.username);
+  $('callInitial').textContent = initial(peer.username); $('callName').textContent = peer.username;
+  $('typingName').textContent = peer.username;
+  setOnline(peer.online);
+  if(peer.pubJwk){ try{ S.key = await deriveShared(peer.pubJwk, pair.pairId); }catch(e){} }
+  if(!S.key) toast('Waiting for the other device’s encryption key…');
+  const data = await api('/api/messages');
+  S.myReceipt = data.receipts.mine; S.peerReceipt = data.receipts.peer;
+  await ingest(data.messages, false);
+  wireComposer(); askNotify();
+}
+
+async function ingest(list, live){
+  let fresh = [];
+  for(const env of list){
+    if(S.msgs.has(env.id)) continue;
+    let body = null;
+    try{ if(S.key) body = await decJSON(env); }catch(e){}
+    const m = Object.assign({id:env.id, ts:env.ts, from:env.from, ok:!!body}, body || {kind:'text', text:'🔒 Cannot decrypt on this device'});
+    S.msgs.set(env.id, m);
+    if(env.from !== S.me.uid) fresh.push(m);
+  }
+  S.order = [...S.msgs.values()].sort((a,b)=>a.ts-b.ts);
+  renderAll();
+  if(fresh.length){
+    const top = Math.max(...fresh.map(m=>m.ts));
+    postReceipt({deliveredTs: top});
+    if(document.hidden){ if(live) notify(fresh[fresh.length-1]); }
+    else postReceipt({readTs: top});
+  }
+}
+
+let rq = Promise.resolve();
+function postReceipt(patch){
+  const next = {deliveredTs: Math.max(S.myReceipt.deliveredTs||0, patch.deliveredTs||0, patch.readTs||0),
+                readTs: Math.max(S.myReceipt.readTs||0, patch.readTs||0)};
+  if(next.deliveredTs === S.myReceipt.deliveredTs && next.readTs === S.myReceipt.readTs) return;
+  S.myReceipt = next;
+  rq = rq.then(()=>api('/api/receipt', {json:next})).catch(()=>{});
+}
+
+function notify(m){
+  if(!S.notifOK) return;
+  try{ const body = m.kind==='file' ? '📎 '+((m.file&&m.file.name)||'Attachment') : (m.text||'').slice(0,120);
+    const n = new Notification(S.peer.username, {body, tag:'duo', icon:'/icon.png'});
+    n.onclick = () => { window.focus(); n.close(); };
+  }catch(e){}
+}
+
+/* ------------------------------ rendering ---------------------------- */
+function renderAll(){
+  const box=$('msgs'); const stick = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
+  box.textContent=''; let lastDay='', lastFrom='';
+  for(const m of S.order){
+    const d = fmtDay(m.ts);
+    if(d !== lastDay){ const e=document.createElement('div'); e.className='day'; e.textContent=d; box.appendChild(e); lastDay=d; lastFrom=''; }
+    box.appendChild(bubble(m, m.from===lastFrom)); lastFrom=m.from;
+  }
+  if(stick) box.scrollTop = box.scrollHeight;
+}
+const onlyEmoji = t => t && t.length<=8 && /^(\p{Extended_Pictographic}|\p{Emoji_Component}|\uFE0F|\u200D|\s)+$/u.test(t);
+function bubble(m, run){
+  const el=document.createElement('div');
+  el.className='b'+(m.from===S.me.uid?' me':'')+(run?' run':'');
+  if(m.kind==='file') el.appendChild(attachment(m));
+  else { const t=document.createElement('div'); t.className='txt'; t.textContent=m.text||''; if(onlyEmoji(m.text)) el.classList.add('big'); el.appendChild(t); }
+  const meta=document.createElement('div'); meta.className='meta';
+  const ts=document.createElement('span'); ts.textContent=fmtTime(m.ts); meta.appendChild(ts);
+  if(m.from===S.me.uid){
+    const tk=document.createElement('span'); tk.className='tick';
+    const read=(S.peerReceipt.readTs||0)>=m.ts, del=(S.peerReceipt.deliveredTs||0)>=m.ts;
+    tk.textContent = m.pending ? '🕓' : (read||del ? '✓✓' : '✓');
+    if(read) tk.classList.add('read');
+    tk.title = m.pending?'Sending':read?'Read':del?'Delivered':'Sent';
+    meta.appendChild(tk);
+  }
+  el.appendChild(meta); return el;
+}
+function attachment(m){
+  const f=m.file||{}, wrap=document.createElement('div');
+  const isImg=(f.mime||'').startsWith('image/'), isVid=(f.mime||'').startsWith('video/');
+  if(isImg||isVid){
+    const ph=document.createElement('div'); ph.className='att';
+    ph.style.cssText='width:230px;height:150px;display:grid;place-items:center;color:var(--ink-2);font-size:12px';
+    ph.textContent='Decrypting…'; wrap.appendChild(ph);
+    resolveAsset(f).then(url=>{
+      if(!url){ ph.textContent='Attachment unavailable'; return; }
+      const el=document.createElement(isImg?'img':'video'); el.className='att'; el.src=url;
+      if(isVid){ el.controls=true; el.playsInline=true; }
+      if(isImg){ el.alt=f.name||'photo'; el.style.cursor='zoom-in'; el.onclick=()=>window.open(url,'_blank'); }
+      ph.replaceWith(el);
+    }).catch(()=>{ ph.textContent='Attachment unavailable'; });
+  }
+  const row=document.createElement('div'); row.className='filerow';
+  const ic=document.createElement('div'); ic.className='fileicon';
+  ic.textContent=((f.name||'').split('.').pop()||'FILE').slice(0,4).toUpperCase();
+  const info=document.createElement('div'); info.style.minWidth='0';
+  const nm=document.createElement('div'); nm.className='filename'; nm.textContent=f.name||'file';
+  const sz=document.createElement('div'); sz.className='muted'; sz.textContent=fmtSize(f.size||0);
+  info.appendChild(nm); info.appendChild(sz);
+  const dl=document.createElement('button'); dl.className='iconbtn'; dl.title='Download'; dl.setAttribute('aria-label','Download');
+  dl.innerHTML='<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>';
+  dl.onclick = async () => {
+    try{ const url = await resolveAsset(f); if(!url) return toast('Attachment unavailable');
+      const a=document.createElement('a'); a.href=url; a.download=f.name||'file'; document.body.appendChild(a); a.click(); a.remove();
+    }catch(e){ toast('Download failed'); }
+  };
+  row.appendChild(ic); row.appendChild(info); row.appendChild(dl);
+  wrap.appendChild(row); return wrap;
+}
+const assetCache = new Map();
+async function resolveAsset(f){
+  if(!f || !f.assetId) return null;
+  if(assetCache.has(f.assetId)) return assetCache.get(f.assetId);
+  const res = await fetch('/api/file/'+f.assetId, {headers:{Authorization:'Bearer '+S.token}});
+  if(!res.ok) throw new Error('missing');
+  const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64.dec(f.iv)}, S.key, await res.arrayBuffer());
+  const url = URL.createObjectURL(new Blob([plain], {type:f.mime||'application/octet-stream'}));
+  assetCache.set(f.assetId, url); return url;
+}
+
+/* ------------------------------- sending ----------------------------- */
+async function sendText(text){
+  text = (text||'').trim();
+  if(!text) return;
+  if(!S.key){ toast('No encryption key yet — ask them to open Duo once'); return; }
+  const id = rid(), ts = Date.now();
+  S.msgs.set(id, {id, ts, from:S.me.uid, kind:'text', text, ok:true, pending:true});
+  S.order = [...S.msgs.values()].sort((a,b)=>a.ts-b.ts); renderAll();
+  try{
+    const env = Object.assign({id}, await encJSON({kind:'text', text}));
+    const r = await api('/api/message', {json:{env}});
+    const local = S.msgs.get(id); if(local){ local.pending=false; local.ts=r.msg.ts; }
+    S.order = [...S.msgs.values()].sort((a,b)=>a.ts-b.ts); renderAll();
+  }catch(e){ toast('Message failed to send'); }
+  setTyping(false);
+}
+
+async function sendFiles(files){
+  for(const file of files){
+    if(file.size > 24*1024*1024){ toast(file.name+' is larger than 24 MB'); continue; }
+    $('upRow').classList.add('on');
+    $('upRow').textContent = 'Encrypting and uploading ' + file.name + '…';
+    try{
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, S.key, await file.arrayBuffer());
+      const up = await api('/api/upload', {method:'POST', body:ct, headers:{'Content-Type':'application/octet-stream'}});
+      const payload = {kind:'file', file:{name:file.name, mime:file.type||'application/octet-stream', size:file.size, assetId:up.id, iv:b64.enc(iv)}};
+      const id = rid();
+      const env = Object.assign({id}, await encJSON(payload));
+      const r = await api('/api/message', {json:{env}});
+      S.msgs.set(id, Object.assign({id, ts:r.msg.ts, from:S.me.uid, ok:true}, payload));
+      S.order = [...S.msgs.values()].sort((a,b)=>a.ts-b.ts); renderAll();
+    }catch(e){ toast('Upload failed: '+file.name); }
+  }
+  $('upRow').classList.remove('on'); $('upRow').textContent='';
+}
+
+let typingOn=false, typingT;
+function setTyping(on){
+  if(on === typingOn && on) { clearTimeout(typingT); typingT=setTimeout(()=>setTyping(false), 3000); return; }
+  typingOn = on; wsSend({t:'typing', on});
+  clearTimeout(typingT); if(on) typingT=setTimeout(()=>setTyping(false), 3000);
+}
+
+let wired=false;
+function wireComposer(){
+  if(wired) return; wired=true;
+  const ta=$('input');
+  ta.addEventListener('input', () => { ta.style.height='auto'; ta.style.height=Math.min(ta.scrollHeight,120)+'px'; setTyping(ta.value.length>0); });
+  ta.addEventListener('keydown', e => { if(e.key==='Enter' && !e.shiftKey && window.matchMedia('(min-width:700px)').matches){ e.preventDefault(); fire(); } });
+  function fire(){ const v=ta.value; ta.value=''; ta.style.height='auto'; sendText(v); }
+  $('sendBtn').onclick = fire;
+  $('attachBtn').onclick = () => $('fileIn').click();
+  $('fileIn').onchange = e => { const f=[...e.target.files]; e.target.value=''; sendFiles(f); };
+  $('voiceBtn').onclick = () => startCall(false);
+  $('videoBtn').onclick = () => startCall(true);
+  $('menuBtn').onclick = async () => {
+    if(!confirm('Disconnect from '+S.peer.username+'? This deletes the conversation and all shared files for both of you.')) return;
+    try{ await api('/api/unpair', {method:'POST'}); localStorage.removeItem('duo.token'); location.reload(); }catch(e){ toast('Failed'); }
+  };
+  const EM='😀 😁 😂 🤣 😊 😍 😘 😎 🤩 🥳 🤔 🙃 😉 😌 😴 😇 🙂 😅 😭 😢 😤 😡 🥺 😳 🤯 🤗 🤝 🙏 👍 👎 👌 ✌️ 👏 💪 🔥 ✨ 🎉 ❤️ 🧡 💛 💚 💙 💜 🖤 💔 💯 ✅ ❌ ⚡ 🌈 ☀️ 🌙 ⭐ 🍕 🍔 🍺 ☕ 🎂 🎁 🎵 ⚽ 🏀 🏆 🚗 ✈️ 🏠 📞 📸 💻 📎 ⏰ 👋 🫶 🐶 🐱'.split(' ');
+  const pane=$('emojiPane');
+  EM.forEach(e => { const b=document.createElement('button'); b.type='button'; b.textContent=e;
+    b.onclick=()=>{ ta.value+=e; ta.focus(); setTyping(true); }; pane.appendChild(b); });
+  $('emojiBtn').onclick = () => pane.classList.toggle('on');
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) readAll(); });
+  window.addEventListener('focus', readAll);
+  $('msgs').addEventListener('scroll', readAll, {passive:true});
+}
+function readAll(){ if(document.hidden) return;
+  const last=[...S.order].reverse().find(m=>m.from!==S.me.uid); if(last) postReceipt({readTs:last.ts}); }
+
+/* -------------------------------- calls ------------------------------ */
+const RTC={pc:null, local:null, mode:null, state:'idle', pending:[], facing:'user', timer:null, offer:null};
+const ICE=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}];
+function sig(t, extra){ wsSend({t:'signal', d:Object.assign({t}, extra||{})}); }
+
+function callUI(state, mode){
+  RTC.state=state;
+  $('scCall').classList.toggle('on', state!=='idle');
+  $('callState').textContent = {calling:'Calling…', ringing:'Incoming '+(mode==='video'?'video':'voice')+' call', connecting:'Connecting…', live:'Connected'}[state]||'';
+  const video = mode==='video';
+  $('localV').classList.toggle('hide', !video || state==='ringing');
+  $('remoteV').classList.toggle('hide', !video);
+  $('callAvatar').classList.toggle('hide', video && state==='live');
+  renderCtrls(state, video);
+}
+function renderCtrls(state, video){
+  const c=$('callCtrls'); c.textContent='';
+  const mk=(cls,svg,label,fn)=>{ const b=document.createElement('button'); b.className='cbtn '+cls; b.title=label; b.setAttribute('aria-label',label);
+    b.innerHTML='<svg viewBox="0 0 24 24">'+svg+'</svg>'; b.onclick=fn; c.appendChild(b); return b; };
+  const PHONE='<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"';
+  const END=PHONE+' transform="rotate(135 12 12)"/>', ACC=PHONE+'/>';
+  const MIC='<path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/>';
+  const CAM='<path d="m23 7-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>';
+  const SLASH='<path d="M3 3l18 18"/>';
+  const FLIP='<path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>';
+  if(state==='ringing'){ mk('hang', END, 'Reject', ()=>endCall(true)); mk('acc', ACC, 'Accept', acceptCall); return; }
+  const mic = mk('', MIC, 'Mute', () => { const t=RTC.local&&RTC.local.getAudioTracks()[0]; if(!t) return;
+    t.enabled=!t.enabled; mic.classList.toggle('off', !t.enabled); mic.querySelector('svg').innerHTML = t.enabled?MIC:MIC+SLASH;
+    toast(t.enabled?'Microphone on':'Microphone muted', 1200); });
+  if(video){
+    const cam = mk('', CAM, 'Camera', () => { const t=RTC.local&&RTC.local.getVideoTracks()[0]; if(!t) return;
+      t.enabled=!t.enabled; cam.classList.toggle('off', !t.enabled); cam.querySelector('svg').innerHTML = t.enabled?CAM:CAM+SLASH; });
+    mk('', FLIP, 'Switch camera', switchCamera);
+  }
+  mk('hang', END, 'End call', ()=>endCall(true));
+}
+const getMedia = video => navigator.mediaDevices.getUserMedia({
+  audio:{echoCancellation:true, noiseSuppression:true},
+  video: video ? {facingMode:RTC.facing, width:{ideal:1280}, height:{ideal:720}} : false });
+
+function newPC(){
+  const pc = new RTCPeerConnection({iceServers:ICE});
+  pc.onicecandidate = e => { if(e.candidate) sig('ice', {c:e.candidate.toJSON?e.candidate.toJSON():e.candidate}); };
+  pc.ontrack = e => { $('remoteV').srcObject = e.streams[0]; callUI('live', RTC.mode); };
+  pc.onconnectionstatechange = () => {
+    if(pc.connectionState==='connected') callUI('live', RTC.mode);
+    if(pc.connectionState==='failed'){ toast('Could not connect directly (no relay server configured)'); endCall(true); }
+    if(pc.connectionState==='disconnected') $('callState').textContent='Reconnecting…';
+  };
+  return pc;
+}
+async function startCall(video){
+  if(RTC.state!=='idle') return;
+  if(!S.peerOnline && !confirm(S.peer.username+' appears offline. Call anyway?')) return;
+  RTC.mode = video?'video':'voice'; callUI('calling', RTC.mode);
+  try{ RTC.local = await getMedia(video); }
+  catch(e){ callUI('idle'); toast('Microphone/camera permission is required'); return; }
+  $('localV').srcObject = RTC.local;
+  RTC.pc = newPC(); RTC.local.getTracks().forEach(t=>RTC.pc.addTrack(t, RTC.local));
+  await RTC.pc.setLocalDescription(await RTC.pc.createOffer());
+  sig('offer', {sdp:RTC.pc.localDescription, mode:RTC.mode});
+  RTC.timer = setTimeout(()=>{ if(RTC.state!=='live'){ toast('No answer'); endCall(true); } }, 45000);
+}
+async function onSignal(d){
+  if(!d) return;
+  if(d.t==='offer'){
+    if(RTC.state!=='idle'){ sig('busy'); return; }
+    RTC.mode=d.mode; RTC.offer=d.sdp; callUI('ringing', RTC.mode); ring();
+  }else if(d.t==='answer'){
+    if(!RTC.pc) return;
+    await RTC.pc.setRemoteDescription(new RTCSessionDescription(d.sdp));
+    for(const c of RTC.pending.splice(0)){ try{ await RTC.pc.addIceCandidate(c); }catch(e){} }
+    callUI('connecting', RTC.mode);
+  }else if(d.t==='ice'){
+    if(!RTC.pc || !RTC.pc.remoteDescription){ RTC.pending.push(d.c); return; }
+    try{ await RTC.pc.addIceCandidate(d.c); }catch(e){}
+  }else if(d.t==='bye'){ if(RTC.state!=='idle'){ toast('Call ended'); endCall(false); } }
+  else if(d.t==='busy'){ toast(S.peer.username+' is busy'); endCall(false); }
+}
+let ringT;
+function ring(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    (function beep(){ if(RTC.state!=='ringing'){ ctx.close(); return; }
+      const o=ctx.createOscillator(), g=ctx.createGain(); o.frequency.value=620; g.gain.value=.08;
+      o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+.35); ringT=setTimeout(beep,1400); })();
+  }catch(e){}
+  if(S.notifOK && document.hidden){ try{ new Notification(S.peer.username, {body:'Incoming '+RTC.mode+' call', tag:'duo-call', icon:'/icon.png'}); }catch(e){} }
+}
+async function acceptCall(){
+  clearTimeout(ringT);
+  const video = RTC.mode==='video'; callUI('connecting', RTC.mode);
+  try{ RTC.local = await getMedia(video); }catch(e){ toast('Permission required'); endCall(true); return; }
+  $('localV').srcObject = RTC.local;
+  RTC.pc = newPC(); RTC.local.getTracks().forEach(t=>RTC.pc.addTrack(t, RTC.local));
+  await RTC.pc.setRemoteDescription(new RTCSessionDescription(RTC.offer));
+  for(const c of RTC.pending.splice(0)){ try{ await RTC.pc.addIceCandidate(c); }catch(e){} }
+  await RTC.pc.setLocalDescription(await RTC.pc.createAnswer());
+  sig('answer', {sdp:RTC.pc.localDescription});
+}
+async function switchCamera(){
+  if(!RTC.pc || RTC.mode!=='video') return;
+  RTC.facing = RTC.facing==='user'?'environment':'user';
+  try{
+    const s = await navigator.mediaDevices.getUserMedia({video:{facingMode:RTC.facing}, audio:false});
+    const track = s.getVideoTracks()[0];
+    const sender = RTC.pc.getSenders().find(x=>x.track && x.track.kind==='video');
+    if(sender) await sender.replaceTrack(track);
+    const old = RTC.local.getVideoTracks()[0]; if(old){ RTC.local.removeTrack(old); old.stop(); }
+    RTC.local.addTrack(track); $('localV').srcObject = RTC.local;
+  }catch(e){ RTC.facing = RTC.facing==='user'?'environment':'user'; toast('No second camera available'); }
+}
+function endCall(tell){
+  clearTimeout(RTC.timer); clearTimeout(ringT);
+  if(tell) sig('bye');
+  if(RTC.pc){ try{ RTC.pc.close(); }catch(e){} }
+  if(RTC.local) RTC.local.getTracks().forEach(t=>t.stop());
+  RTC.pc=null; RTC.local=null; RTC.pending=[]; RTC.offer=null;
+  $('remoteV').srcObject=null; $('localV').srcObject=null;
+  callUI('idle');
+}
+window.addEventListener('beforeunload', () => { if(RTC.state!=='idle') sig('bye'); });
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
+boot();
+</script>
+</body>
+</html>

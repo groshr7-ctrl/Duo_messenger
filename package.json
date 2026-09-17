@@ -1,0 +1,10 @@
+{
+  "name": "duo-messenger",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Private end-to-end encrypted 1:1 messenger with file sharing and WebRTC voice/video calls",
+  "main": "server.js",
+  "engines": { "node": ">=18" },
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "express": "^4.19.2", "ws": "^8.17.0" }
+}
