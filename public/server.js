@@ -34,9 +34,10 @@ const app = express();
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public'), {
-  maxAge: '1h',
+  maxAge: 0,
   setHeaders(res, filePath) {
     if (/\.(html|js|json)$/.test(filePath)) res.setHeader('Cache-Control', 'no-cache');
+    else res.setHeader('Cache-Control', 'no-cache, max-age=300'); // icons etc: revalidate, short cache
   }
 }));
 
