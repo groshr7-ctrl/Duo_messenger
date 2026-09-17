@@ -89,11 +89,25 @@
   .spin{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite;display:inline-block;vertical-align:-3px}
   @keyframes sp{to{transform:rotate(360deg)}}
   .banner{background:#8a5a00;color:#fff;font-size:12.5px;padding:6px 12px;text-align:center;display:none}.banner.on{display:block}
+  .installbar{display:none;align-items:center;gap:10px;background:var(--accent);color:#fff;padding:9px 12px}
+  .installbar.on{display:flex}
+  .installbar .ic{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.2);display:grid;place-items:center;flex:none;font-size:15px}
+  .installbar .tx{flex:1;min-width:0;font-size:13px;line-height:1.25}
+  .installbar .tx b{display:block;font-size:13.5px}
+  .installbar button{padding:6px 12px;border-radius:8px;font-size:13px;font-weight:650}
+  .installbar .go{background:#fff;color:var(--accent)}
+  .installbar .x{color:#fff;opacity:.85;padding:6px;font-size:18px;line-height:1}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="banner" id="netBanner">Reconnecting…</div>
+  <div class="installbar" id="installBar">
+    <div class="ic">📲</div>
+    <div class="tx"><b>Install Duo</b><span id="installSub">Add it to your home screen to use it like an app.</span></div>
+    <button class="go" id="installGo">Install</button>
+    <button class="x" id="installX" aria-label="Dismiss">×</button>
+  </div>
 
   <section class="screen on" id="scBoot"><div class="center"><div class="pad">
     <h1>Duo</h1><p class="sub" id="bootMsg"><span class="spin"></span> Starting…</p>
@@ -106,7 +120,6 @@
     <input class="field mt" id="username" maxlength="24" placeholder="Username" autocomplete="off" autocapitalize="off" spellcheck="false">
     <button class="btn mt" id="loginBtn">Continue</button>
     <p class="muted mt">Your device creates an encryption key that never leaves it. Messages and files are end-to-end encrypted — the server only ever stores ciphertext.</p>
-    <p class="muted mt" id="installHint"></p>
   </div></div></section>
 
   <section class="screen" id="scLobby"><div class="center"><div class="pad">
@@ -184,8 +197,9 @@ const rid = (n=14)=>{ const a='abcdefghijkmnopqrstuvwxyz23456789'; let s=''; con
 async function api(path, opts={}){
   const h = Object.assign({}, opts.headers||{});
   if(S.token) h.Authorization = 'Bearer '+S.token;
-  if(opts.json){ h['Content-Type']='application/json'; opts.body = JSON.stringify(opts.json); }
-  const r = await fetch(path, Object.assign({}, opts, {headers:h}));
+  let method = opts.method;
+  if(opts.json){ h['Content-Type']='application/json'; opts.body = JSON.stringify(opts.json); if(!method) method='POST'; }
+  const r = await fetch(path, Object.assign({}, opts, {headers:h, method}));
   if(r.status === 401){ localStorage.removeItem('duo.token'); location.reload(); throw new Error('unauthorized'); }
   const ct = r.headers.get('content-type')||'';
   const body = ct.includes('json') ? await r.json() : r;
@@ -219,8 +233,40 @@ async function encJSON(o){ const iv=crypto.getRandomValues(new Uint8Array(12));
 async function decJSON(e){ const pt=await crypto.subtle.decrypt({name:'AES-GCM', iv:b64.dec(e.iv)}, S.key, b64.dec(e.ct));
   return JSON.parse(new TextDecoder().decode(pt)); }
 
+/* ------------------------------ install prompt ------------------------ */
+let deferredInstall = null;
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+
+function setupInstallBar(){
+  if(isStandalone() || sessionStorage.getItem('duo.installDismissed')) return;
+  const bar = $('installBar');
+  if(isIOS()){
+    $('installSub').textContent = 'Tap the Share icon, then "Add to Home Screen".';
+    $('installGo').textContent = 'Show me';
+    $('installGo').onclick = () => toast('In Safari: tap the Share icon (square with an arrow up), then "Add to Home Screen".', 6000);
+    bar.classList.add('on');
+  } else {
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      deferredInstall = e;
+      bar.classList.add('on');
+    });
+    $('installGo').onclick = async () => {
+      if(!deferredInstall){ toast('Use your browser menu → "Install app" or "Add to Home screen".'); return; }
+      deferredInstall.prompt();
+      const choice = await deferredInstall.userChoice;
+      deferredInstall = null;
+      if(choice.outcome === 'accepted') bar.classList.remove('on');
+    };
+  }
+  $('installX').onclick = () => { bar.classList.remove('on'); sessionStorage.setItem('duo.installDismissed', '1'); };
+}
+window.addEventListener('appinstalled', () => { $('installBar').classList.remove('on'); toast('Duo installed!'); });
+
 /* -------------------------------- boot ------------------------------- */
 async function boot(){
+  setupInstallBar();
   if(!window.isSecureContext) $('bootMsg').textContent = 'This page must be served over HTTPS for encryption and calls to work.';
   const kp = await myKeypair(); S.priv=kp.priv; S.pubJwk=kp.pubJwk;
   S.invite = (location.hash.match(/i=([a-z0-9]+)/i)||[])[1] || null;
@@ -228,8 +274,6 @@ async function boot(){
 
   if(!S.token){
     if(S.invite) showInviteNote();
-    if(!window.matchMedia('(display-mode: standalone)').matches)
-      $('installHint').textContent = 'Tip: use your browser menu → "Add to Home Screen" to install Duo as an app.';
     screenTo('scLogin'); $('username').focus();
     $('loginBtn').onclick = doLogin;
     $('username').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
