@@ -1,5 +1,5 @@
 /* Duo service worker: caches the app shell so it installs as a real PWA and opens offline. */
-const CACHE = 'duo-v1';
+const CACHE = 'moto-health-v2';
 const SHELL = ['/', '/index.html', '/manifest.json', '/icon.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
